@@ -1,0 +1,21 @@
+#############################
+# Terraform
+#############################
+.terraform/
+*.tfstate
+*.tfstate.backup
+crash.log
+override.tf
+override.tf.json
+
+# If you ever use tfvars for secrets (API keys, passwords, etc.)
+*.tfvars
+
+#############################
+# OS / Editor junk
+#############################
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
