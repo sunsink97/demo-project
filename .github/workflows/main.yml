@@ -1,27 +1,37 @@
-name: Terraform CI/CD
+name: Serverless-Architecture
 
 on:
   push:
     branches:
-      - feature/**
+      - "serverless-architecture/**" 
+      
+  #run if merging to main
   pull_request:
+    branches:
+      - main
+    paths:
+      - "serverless-architecture/**" 
 
 jobs:
   terraform:
     runs-on: ubuntu-latest
-    
+
+    defaults:
+      run:
+        working-directory: ./serverless-architecture
+
     steps:
-      - name: Checkout repo
+      - name: Checkout Source Code 
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
+      - name: AWS creds
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+          aws-region: us-east-1
 
-      - name: Setup Terraform
+      - name: Install Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.9.8 
@@ -36,5 +46,4 @@ jobs:
         run: terraform validate
 
       - name: Terraform plan
-        if: github.ref != 'refs/heads/main'
         run: terraform plan -input=false

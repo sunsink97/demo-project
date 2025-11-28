@@ -41,7 +41,7 @@
       display: flex;
       flex-direction: column;
       width: 100%;
-      max-width: 600px;      /* centered, smaller box */
+      max-width: 600px;     
       min-height: 80vh;
       margin: 0 auto;
       background: radial-gradient(circle at top left, #020617, #020617 40%, #020617 100%);
@@ -407,7 +407,6 @@
 
     <section class="chat">
       <div id="messages" class="chat-messages">
-        <!-- Initial welcome message -->
         <div class="chat-message ai">
           <div class="avatar ai">A</div>
           <div>
@@ -461,9 +460,7 @@
   </div>
 
   <script>
-    // === CONFIG: replace with your real API endpoint ===
-    const API_ENDPOINT = "https://api.yourdomain.dev/chat";
-    // ===================================================
+    const API_ENDPOINT = "${api_endpoint}";
 
     const messagesEl = document.getElementById("messages");
     const inputEl = document.getElementById("input");
@@ -487,16 +484,14 @@
       const meta = document.createElement("div");
       meta.className = "message-meta";
       const label = role === "user" ? "You" : "AI";
-      meta.innerHTML = `<span>${label}</span><span class="dot"></span><span>${new Date().toLocaleTimeString()}</span>`;
+      meta.innerHTML = `<span>$${label}</span><span class="dot"></span><span>$${new Date().toLocaleTimeString()}</span>`;
 
       bubbleWrap.appendChild(bubble);
       bubbleWrap.appendChild(meta);
 
       if (role === "user") {
-        // user bubble aligned right, no avatar
         wrapper.appendChild(bubbleWrap);
       } else {
-        // ai: avatar + bubble
         wrapper.appendChild(avatar);
         wrapper.appendChild(bubbleWrap);
       }
@@ -533,7 +528,6 @@
       const text = inputEl.value.trim();
       if (!text) return;
 
-      // /clear command – handled entirely client-side
       if (text.toLowerCase() === "/clear") {
         inputEl.value = "";
         clearChat();
@@ -558,7 +552,6 @@
 
         const data = await res.json();
 
-        // Expect API to return: { reply: "..." }
         const reply = (data && data.reply) || "[No response from AI backend]";
         appendMessage("ai", reply);
       } catch (e) {
