@@ -3,7 +3,6 @@ name: Terraform CI/CD
 on:
   push:
     branches:
-      - main
       - feature/**
   pull_request:
 
@@ -39,8 +38,3 @@ jobs:
       - name: Terraform plan
         if: github.ref != 'refs/heads/main'
         run: terraform plan -input=false
-
-      # Only apply on main
-      - name: Terraform apply
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        run: terraform apply -auto-approve -input=false
