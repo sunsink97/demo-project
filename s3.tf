@@ -1,3 +1,7 @@
+locals {
+  api_endpoint = "${aws_apigatewayv2_stage.dev.invoke_url}/chat"
+}
+
 resource "random_id" "suffix" {
   byte_length = 4
 }
@@ -64,7 +68,10 @@ resource "aws_s3_object" "microservice_chat_bot_index" {
   bucket = aws_s3_bucket.microservice_chat_bot.id
   key    = "index.html"
 
-  source = "${path.module}/Files/index.html"
-
   content_type = "text/html"
+
+  content = templatefile("${path.module}/Files/index.template.html", {
+    api_endpoint = "${aws_apigatewayv2_stage.dev.invoke_url}/chat"
+  })
+
 }
