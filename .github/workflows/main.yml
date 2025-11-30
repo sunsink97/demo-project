@@ -6,6 +6,7 @@ on:
       - "**"               
     paths:
       - "serverless-architecture/**"
+      - ".github/workflows/main.yaml" 
 
 env: # <-------- take value from git huba action // use TF_VAR_ to link to tf so tf can read value
   TF_VAR_environment: ${{ vars.TF_ENVIRONMENT }}
