@@ -15,7 +15,7 @@ variable "project_name" {
   type    = string
 }
 
-variable "qroq_api" {
+variable "groq_api" {
   type      = string
   sensitive = true
 }
