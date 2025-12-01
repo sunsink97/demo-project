@@ -29,5 +29,9 @@ Once the AI returns a reply, it will then be sent back to the frontend. The appl
 - `automate terraform plan on push` : Learning CI/CD functionality on GitHub Actions. The YAML is designed for testing convenience so that each time code is pushed to a branch, GitHub Actions will execute Terraform plan and apply.  
   Ideally in a real production repo, Terraform apply via GitHub Actions should only be triggered when a pull request is merged into main.
 - `using S3 as "Terraform backend"` : Manually created an S3 bucket with the purpose of storing Terraform state. This Terraform state is then used by GitHub Actions and also from local development so both can share a single state file across multiple devices.
+- `API Gateway HTTP API (v2)` : nice for simple demo. cheaper than REST version
+
+#### Note to self
+- no custom domain, website still use cloudfront id to reach.
 
 ---
