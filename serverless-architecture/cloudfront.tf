@@ -86,7 +86,7 @@ resource "aws_cloudfront_distribution" "microservice_chat_bot_s3_distribution" {
   tags = local.common_tags
 
 
-  price_class = "PriceClass_200"
+  price_class = "PriceClass_100"
 
   restrictions {
     geo_restriction {
