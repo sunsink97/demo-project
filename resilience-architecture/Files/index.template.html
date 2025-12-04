@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Lambda Metrics Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+      --bg: #020617;
+      --card-bg: #020617;
+      --text-main: #e5e7eb;
+      --text-muted: #9ca3af;
+      --accent: #38bdf8;
+      --border: #1f2937;
+      --radius-lg: 16px;
+      --shadow-soft: 0 18px 36px rgba(15, 23, 42, 0.9);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top, #020617, #020617 45%, #000 100%);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+
+    .layout {
+      width: 100%;
+      max-width: 960px;
+    }
+
+    header {
+      margin-bottom: 14px;
+    }
+
+    header h1 {
+      font-size: 1.3rem;
+      margin-bottom: 4px;
+    }
+
+    header p {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .card {
+      background: var(--card-bg);
+      border-radius: var(--radius-lg);
+      border: 1px solid rgba(15, 23, 42, 0.95);
+      box-shadow: var(--shadow-soft);
+      padding: 16px 16px 18px;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .chart-header h2 {
+      margin: 0 0 4px;
+      font-size: 1rem;
+    }
+
+    .chart-header p {
+      margin: 0;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+      align-items: center;
+    }
+
+    .segment {
+      display: inline-flex;
+      background: #020617;
+      border-radius: 999px;
+      padding: 2px;
+      border: 1px solid var(--border);
+    }
+
+    .segment button {
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      padding: 5px 10px;
+      font-size: 0.75rem;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .segment button.active {
+      background: rgba(56, 189, 248, 0.18);
+      color: var(--accent);
+    }
+
+    .segment button:hover {
+      background: rgba(15, 23, 42, 0.96);
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: #020617;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .chip input[type="checkbox"] {
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .btn {
+      border-radius: 999px;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      background: radial-gradient(
+        circle at top left,
+        rgba(56, 189, 248, 0.18),
+        rgba(8, 47, 73, 0.96)
+      );
+      color: var(--text-main);
+      font-size: 0.8rem;
+      padding: 6px 14px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-icon {
+      font-size: 0.9rem;
+    }
+
+    .btn-secondary {
+      border-color: var(--border);
+      background: #020617;
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin: 10px 0 10px;
+    }
+
+    @media (max-width: 800px) {
+      .summary-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 540px) {
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .summary-card {
+      border-radius: 12px;
+      border: 1px solid rgba(15, 23, 42, 0.95);
+      padding: 8px 9px;
+      background: radial-gradient(circle at top, #020617, #020617 70%);
+    }
+
+    .summary-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+    }
+
+    .summary-value {
+      font-size: 1.02rem;
+      font-weight: 600;
+    }
+
+    .summary-sub {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .summary-accent {
+      color: var(--accent);
+    }
+
+    .chart-container {
+      border-radius: 12px;
+      border: 1px solid rgba(15, 23, 42, 0.9);
+      background: radial-gradient(circle at top, #020617, #020617 70%);
+      padding: 10px 10px 4px;
+      height: 260px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .chart-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 6px;
+      margin-top: 6px;
+      border-top: 1px solid rgba(31, 41, 55, 0.8);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      margin-right: 6px;
+    }
+
+    .status-dot.ok {
+      background: #22c55e;
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.85);
+    }
+
+    .status-dot.warn {
+      background: #f97316;
+      box-shadow: 0 0 10px rgba(249, 115, 22, 0.85);
+    }
+
+    .status-dot.err {
+      background: #ef4444;
+      box-shadow: 0 0 10px rgba(239, 68, 68, 0.85);
+    }
+
+    .error-banner {
+      margin-top: 8px;
+      padding: 6px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(248, 113, 113, 0.4);
+      background: rgba(248, 113, 113, 0.14);
+      color: #fecaca;
+      font-size: 0.75rem;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .error-banner.visible {
+      display: flex;
+    }
+
+    footer {
+      margin-top: 10px;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    code {
+      font-size: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <header>
+      <h1>Lambda Metrics Dashboard</h1>
+      <p>Live view of Lambda invocations.</p>
+    </header>
+
+    <main>
+      <section class="card">
+        <div class="chart-header">
+          <div>
+            <h2>Invocation chart</h2>
+            <p>Select a time range, trigger the Lambda, and see the change.</p>
+          </div>
+
+          <div class="controls-row">
+            <div class="segment" id="rangeSegment">
+              <button data-range="1h" class="active">1 h</button>
+              <button data-range="6h">6 h</button>
+              <button data-range="24h">24 h</button>
+            </div>
+
+            <label class="chip">
+              <input type="checkbox" id="autoRefreshToggle" checked />
+              Auto-refresh <span style="opacity:0.7;">(30 s)</span>
+            </label>
+
+            <button class="btn btn-secondary" id="invokeBtn">
+              <span class="btn-icon">⚡</span>
+              <span>Trigger Lambda</span>
+            </button>
+
+            <button class="btn" id="refreshBtn">
+              <span class="btn-icon">⟳</span>
+              <span>Refresh</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="summary-grid" aria-label="Metric summary">
+          <div class="summary-card">
+            <div class="summary-label">Current</div>
+            <div class="summary-value summary-accent" id="currentRate">—</div>
+            <div class="summary-sub">Latest value</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">Average</div>
+            <div class="summary-value" id="avgRate">—</div>
+            <div class="summary-sub">Selected window</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">Peak</div>
+            <div class="summary-value" id="maxRate">—</div>
+            <div class="summary-sub">Max value</div>
+          </div>
+          <div class="summary-card">
+            <div class="summary-label">Updated</div>
+            <div class="summary-value" id="lastUpdated">—</div>
+            <div class="summary-sub">Local time</div>
+          </div>
+        </div>
+
+        <div class="chart-container">
+          <canvas id="lambdaChart"></canvas>
+        </div>
+
+        <div class="chart-footer">
+          <div>
+            <span class="status-dot ok" id="statusDot"></span>
+            <span id="statusText">Waiting for data…</span>
+          </div>
+          <div id="pointCountText">0 data points</div>
+        </div>
+
+        <div class="error-banner" id="errorBanner">
+          <span>⚠</span>
+          <span id="errorText"></span>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      Metrics API response:
+      <code>{ "points": [ { "timestamp": "2025-12-01T12:00:00Z", "value": 5 }, ... ] }</code>
+    </footer>
+  </div>
+
+  <script>
+    // === Configuration =======================================================
+    // TODO: Replace with your real endpoints
+    const METRICS_API_URL = "https://YOUR_METRICS_API_URL_HERE/metrics";
+    const INVOKE_API_URL  = "https://YOUR_INVOKE_API_URL_HERE/invoke";
+
+    const AUTO_REFRESH_INTERVAL_MS = 30_000;
+
+    let lambdaChart = null;
+    let currentRange = "1h";
+    let autoRefreshTimer = null;
+
+    const el = {
+      currentRate: document.getElementById("currentRate"),
+      avgRate: document.getElementById("avgRate"),
+      maxRate: document.getElementById("maxRate"),
+      lastUpdated: document.getElementById("lastUpdated"),
+      statusDot: document.getElementById("statusDot"),
+      statusText: document.getElementById("statusText"),
+      pointCountText: document.getElementById("pointCountText"),
+      errorBanner: document.getElementById("errorBanner"),
+      errorText: document.getElementById("errorText"),
+      rangeSegment: document.getElementById("rangeSegment"),
+      autoRefreshToggle: document.getElementById("autoRefreshToggle"),
+      refreshBtn: document.getElementById("refreshBtn"),
+      invokeBtn: document.getElementById("invokeBtn"),
+    };
+
+    // === Helpers =============================================================
+    function formatTimeLabel(isoString) {
+      const d = new Date(isoString);
+      return d.toLocaleTimeString("en-GB", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+
+    function formatDateTimeLocal(date) {
+      return date.toLocaleString("en-GB", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
+    }
+
+    function setStatus(state, message) {
+      el.statusDot.className = "status-dot " + state;
+      el.statusText.textContent = message;
+    }
+
+    function showError(message) {
+      el.errorBanner.classList.add("visible");
+      el.errorText.textContent = message;
+      setStatus("err", "Error");
+    }
+
+    function clearError() {
+      el.errorBanner.classList.remove("visible");
+      setStatus("ok", "Connected");
+    }
+
+    // === Chart setup =========================================================
+    function initChart() {
+      const ctx = document.getElementById("lambdaChart").getContext("2d");
+      lambdaChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels: [],
+          datasets: [
+            {
+              label: "Invocations",
+              data: [],
+              fill: true,
+              tension: 0.25,
+            },
+          ],
+        },
+        options: {
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { maxTicksLimit: 8, color: "#9ca3af" },
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: "rgba(31, 41, 55, 0.6)" },
+              ticks: { color: "#9ca3af", precision: 0 },
+            },
+          },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (context) => "Invocations: " + context.parsed.y,
+              },
+            },
+          },
+        },
+      });
+    }
+
+    function updateChart(points) {
+      if (!lambdaChart) return;
+
+      lambdaChart.data.labels = points.map((p) => formatTimeLabel(p.timestamp));
+      lambdaChart.data.datasets[0].data = points.map((p) => p.value);
+      lambdaChart.update();
+
+      const countText =
+        points.length === 1 ? "1 data point" : points.length + " data points";
+      el.pointCountText.textContent = countText;
+    }
+
+    function updateSummary(points) {
+      if (!points || points.length === 0) {
+        el.currentRate.textContent = "—";
+        el.avgRate.textContent = "—";
+        el.maxRate.textContent = "—";
+        el.lastUpdated.textContent = "—";
+        setStatus("warn", "No data for this range");
+        return;
+      }
+
+      const lastPoint = points[points.length - 1];
+      const values = points.map((p) => p.value);
+      const sum = values.reduce((a, b) => a + b, 0);
+      const avg = sum / values.length;
+      const max = Math.max(...values);
+
+      el.currentRate.textContent = lastPoint.value.toString();
+      el.avgRate.textContent = avg.toFixed(1);
+      el.maxRate.textContent = max.toString();
+      el.lastUpdated.textContent = formatDateTimeLocal(new Date());
+      setStatus("ok", "Live · " + currentRange);
+    }
+
+    // === Data loading ========================================================
+    async function loadAndRender(range) {
+      try {
+        clearError();
+
+        const url = new URL(METRICS_API_URL);
+        url.searchParams.set("range", range);
+
+        const res = await fetch(url.toString(), {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        });
+
+        if (!res.ok) {
+          throw new Error("HTTP " + res.status);
+        }
+
+        const data = await res.json();
+        const points = Array.isArray(data.points) ? data.points : [];
+
+        updateChart(points);
+        updateSummary(points);
+      } catch (err) {
+        console.error(err);
+        showError("Could not load metrics. Check API and CORS.");
+      }
+    }
+
+    // === Invoke Lambda =======================================================
+    async function invokeLambda() {
+      el.invokeBtn.disabled = true;
+      const originalText = el.invokeBtn.querySelector("span:last-child").textContent;
+      el.invokeBtn.querySelector("span:last-child").textContent = "Invoking…";
+
+      try {
+        const res = await fetch(INVOKE_API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ source: "dashboard" }),
+        });
+
+        if (!res.ok) {
+          throw new Error("HTTP " + res.status);
+        }
+
+        // Optional: read body if you return something
+        // const result = await res.json();
+
+        // After invoking, reload metrics to reflect new invocation
+        await loadAndRender(currentRange);
+        setStatus("ok", "Lambda triggered");
+      } catch (err) {
+        console.error(err);
+        showError("Failed to trigger Lambda.");
+      } finally {
+        el.invokeBtn.disabled = false;
+        el.invokeBtn.querySelector("span:last-child").textContent = originalText;
+      }
+    }
+
+    // === Auto-refresh ========================================================
+    function startAutoRefresh() {
+      stopAutoRefresh();
+      autoRefreshTimer = setInterval(() => {
+        loadAndRender(currentRange);
+      }, AUTO_REFRESH_INTERVAL_MS);
+    }
+
+    function stopAutoRefresh() {
+      if (autoRefreshTimer) {
+        clearInterval(autoRefreshTimer);
+        autoRefreshTimer = null;
+      }
+    }
+
+    // === Events ==============================================================
+    function setupEvents() {
+      el.rangeSegment.addEventListener("click", (event) => {
+        const btn = event.target.closest("button[data-range]");
+        if (!btn) return;
+        const newRange = btn.getAttribute("data-range");
+        if (!newRange || newRange === currentRange) return;
+
+        currentRange = newRange;
+        el.rangeSegment.querySelectorAll("button").forEach((b) => {
+          b.classList.toggle("active", b === btn);
+        });
+
+        loadAndRender(currentRange);
+      });
+
+      el.autoRefreshToggle.addEventListener("change", (event) => {
+        if (event.target.checked) {
+          startAutoRefresh();
+        } else {
+          stopAutoRefresh();
+        }
+      });
+
+      el.refreshBtn.addEventListener("click", () => {
+        loadAndRender(currentRange);
+      });
+
+      el.invokeBtn.addEventListener("click", () => {
+        invokeLambda();
+      });
+    }
+
+    // === Bootstrap ===========================================================
+    document.addEventListener("DOMContentLoaded", () => {
+      initChart();
+      setupEvents();
+      loadAndRender(currentRange);
+      startAutoRefresh();
+    });
+  </script>
+</body>
+</html>
