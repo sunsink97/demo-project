@@ -7,7 +7,7 @@ variable "env" {
 variable "project_name" {
   description = "project name"
   type        = string
-  default     = "resilience architecture"
+  default     = "resilience-architecture"
 }
 
 variable "lambda_version" {
@@ -56,4 +56,35 @@ variable "golden_ami_spec" {
     root_device_type = "ebs"
     description      = "Amazon Linux 2, HVM, 64-bit, EBS-backed (baseline golden AMI)"
   }
+}
+
+//asg var
+variable "asg_name" {
+  description = "Name of the Auto Scaling Group"
+  type        = string
+  default     = "resilience-app-asg"
+}
+
+variable "asg_max_size" {
+  description = "Maximum number of instances for the ASG"
+  type        = number
+  default     = 1
+}
+
+variable "asg_min_size" {
+  description = "Minimum number of instances for the ASG"
+  type        = number
+  default     = 1
+}
+
+variable "asg_desired_capacity" {
+  description = "Desired number of instances for the ASG"
+  type        = number
+  default     = 1
+}
+
+variable "asg_health_check_grace_period" {
+  description = "Grace period in seconds for ASG health checks"
+  type        = number
+  default     = 300
 }

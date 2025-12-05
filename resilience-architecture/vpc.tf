@@ -101,35 +101,3 @@ resource "aws_route_table_association" "private_assoc" {
   subnet_id      = aws_subnet.private_subnet[each.key].id
   route_table_id = aws_route_table.private_route_table[each.key].id
 }
-
-//asg var
-variable "asg_name" {
-  description = "Name of the Auto Scaling Group"
-  type        = string
-  default     = "resilience-app-asg"
-}
-
-variable "asg_max_size" {
-  description = "Maximum number of instances for the ASG"
-  type        = number
-  default     = 2
-}
-
-variable "asg_min_size" {
-  description = "Minimum number of instances for the ASG"
-  type        = number
-  default     = 1
-}
-
-variable "asg_desired_capacity" {
-  description = "Desired number of instances for the ASG"
-  type        = number
-  default     = 2
-}
-
-variable "asg_health_check_grace_period" {
-  description = "Grace period in seconds for ASG health checks"
-  type        = number
-  default     = 300
-}
-
