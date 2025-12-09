@@ -1,30 +1,35 @@
-// Launch template using a fixed golden AMI
-resource "aws_launch_template" "main" {
+variable "scale_target_cpu" {
+  type    = number
+  default = 50
+}
+
+resource "aws_launch_template" "resilience_architecture_launch_template" {
   name                    = "${var.env}-${var.project_name}-launch-template"
   description             = "The template of EC2 for autoscale"
   disable_api_termination = false
 
-  image_id                             = "ami-093a7f5fbae13ff67" // <---- ami from amazon linux. regioonal to singapore
+  image_id = "ami-093a7f5fbae13ff67" // <---- ami from amazon linux. regioonal to singapore onlyyes
+
   instance_initiated_shutdown_behavior = "terminate"
   instance_type                        = var.golden_ami_spec.instance_type
   ebs_optimized                        = true
 
   iam_instance_profile {
-    name = aws_iam_instance_profile.ec2_instance_profile.name
+    name = aws_iam_instance_profile.resilience_architecture_ec2_instance_profile.name
   }
 
-  vpc_security_group_ids = [aws_security_group.app_sg.id]
-
+  vpc_security_group_ids = [aws_security_group.resilience_architecture_app_sg.id]
 
   user_data = base64encode(templatefile("${path.module}/script/user-data.tpl",
     {
-      aws_env    = var.env
-      project    = var.project_name
+      aws_env = var.env
+      project = var.project_name
     }
   ))
 
   block_device_mappings {
     device_name = "/dev/sda1"
+
     ebs {
       volume_size = 50
       volume_type = "gp3"
@@ -39,7 +44,7 @@ resource "aws_launch_template" "main" {
   tags = local.common_tags
 }
 
-resource "aws_autoscaling_group" "app_asg" {
+resource "aws_autoscaling_group" "resilience_architecture_autoscaling_group" {
   name                      = var.asg_name
   max_size                  = var.asg_max_size
   min_size                  = var.asg_min_size
@@ -48,12 +53,13 @@ resource "aws_autoscaling_group" "app_asg" {
   health_check_type         = "ELB"
 
   launch_template {
-    id      = aws_launch_template.main.id
+    id      = aws_launch_template.resilience_architecture_launch_template.id
     version = "$Latest"
   }
 
   vpc_zone_identifier = values(aws_subnet.private_subnet)[*].id
-  target_group_arns = [aws_lb_target_group.app.arn]
+  target_group_arns   = [aws_lb_target_group.resilience_architecture_app_target_group.arn]
+
   termination_policies = [
     "OldestLaunchTemplate",
     "OldestInstance",
@@ -71,20 +77,31 @@ resource "aws_autoscaling_group" "app_asg" {
     triggers = ["launch_template"]
   }
 
-    tag {
+  tag {
     key                 = "Managedby"
     value               = "Terraform"
     propagate_at_launch = true
   }
 }
 
-resource "aws_lb_target_group" "app" {
+resource "aws_autoscaling_policy" "resilience_architecture_target_tracking_cpu" {
+  name                   = "${var.env}-${var.project_name}-target-tracking-cpu"
+  autoscaling_group_name = aws_autoscaling_group.resilience_architecture_autoscaling_group.name
+  policy_type            = "TargetTrackingScaling"
+
+  target_tracking_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ASGAverageCPUUtilization"
+    }
+    target_value = var.scale_target_cpu
+  }
+}
+
+resource "aws_lb_target_group" "resilience_architecture_app_target_group" {
   name_prefix          = "app-"
   port                 = 80
   protocol             = "HTTP"
-
-  vpc_id = aws_vpc.resilience_architecture_vpc.id
-
+  vpc_id               = aws_vpc.resilience_architecture_vpc.id
   tags                 = local.common_tags
   deregistration_delay = 60
 
@@ -100,13 +117,13 @@ resource "aws_lb_target_group" "app" {
   }
 }
 
-resource "aws_lb_listener_rule" "app" {
-  listener_arn = aws_lb_listener.http.arn
+resource "aws_lb_listener_rule" "resilience_architecture_app_listener_rule" {
+  listener_arn = aws_lb_listener.resilience_architecture_http_listener.arn
   priority     = 100
 
   action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.app.arn
+    target_group_arn = aws_lb_target_group.resilience_architecture_app_target_group.arn
   }
 
   condition {
@@ -122,42 +139,38 @@ resource "aws_lb_listener_rule" "app" {
   }
 }
 
-// lb
-resource "aws_lb" "app_lb" {
+resource "aws_lb" "resilience_architecture_app_lb" {
   name               = "${var.project_name}-lb"
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.lb_sg.id]
+  security_groups    = [aws_security_group.resilience_architecture_lb_sg.id]
   subnets            = values(aws_subnet.public_subnet)[*].id
   tags               = local.common_tags
 }
 
-resource "aws_lb_listener" "http" {
-  load_balancer_arn = aws_lb.app_lb.arn
+resource "aws_lb_listener" "resilience_architecture_http_listener" {
+  load_balancer_arn = aws_lb.resilience_architecture_app_lb.arn
   port              = 80
   protocol          = "HTTP"
 
   default_action {
     type             = "forward"
-    target_group_arn = aws_lb_target_group.app.arn
+    target_group_arn = aws_lb_target_group.resilience_architecture_app_target_group.arn
   }
 }
 
-//app sg
-resource "aws_security_group" "app_sg" {
+resource "aws_security_group" "resilience_architecture_app_sg" {
   name        = "${var.project_name}-app-sg"
   description = "Security group for EC2 instances behind ALB"
   vpc_id      = aws_vpc.resilience_architecture_vpc.id
 
-  # Allow HTTP from ALB
   ingress {
     description     = "HTTP from ALB"
     from_port       = 80
     to_port         = 80
     protocol        = "tcp"
-    security_groups = [aws_security_group.lb_sg.id]
+    security_groups = [aws_security_group.resilience_architecture_lb_sg.id]
   }
 
-  # Allow all outbound (for yum, CloudWatch, SSM, etc.)
   egress {
     from_port   = 0
     to_port     = 0
@@ -170,9 +183,7 @@ resource "aws_security_group" "app_sg" {
   })
 }
 
-
-//sec group for lb
-resource "aws_security_group" "lb_sg" {
+resource "aws_security_group" "resilience_architecture_lb_sg" {
   name        = "${var.project_name}-alb-sg"
   description = "Security group for ALB"
   vpc_id      = aws_vpc.resilience_architecture_vpc.id
@@ -206,32 +217,37 @@ resource "aws_security_group" "lb_sg" {
   })
 }
 
-/// add iam role for ec2 to enable cloudwatch and ssm
-
-resource "aws_iam_instance_profile" "ec2_instance_profile" {
+resource "aws_iam_instance_profile" "resilience_architecture_ec2_instance_profile" {
   name = "${var.env}-${var.project_name}-ec2-instance-profile"
-  role = aws_iam_role.ec2_role.name
+  role = aws_iam_role.resilience_architecture_ec2_role.name
 }
 
-resource "aws_iam_role" "ec2_role" {
+resource "aws_iam_role" "resilience_architecture_ec2_role" {
   name = "${var.env}-${var.project_name}-ec2-iam-role"
 
   assume_role_policy = jsonencode({
-    Version = "2012-10-17"
+    Version = "2012-10-17",
     Statement = [{
-      Action = "sts:AssumeRole"
-      Effect = "Allow"
-      Principal = { Service = "ec2.amazonaws.com" }
+      Effect = "Allow",
+      Action = "sts:AssumeRole",
+      Principal = {
+        Service = "ec2.amazonaws.com"
+      }
     }]
   })
 }
 
-resource "aws_iam_role_policy_attachment" "cloudwatch_agent" {
-  role       = aws_iam_role.ec2_role.name
+resource "aws_iam_role_policy_attachment" "resilience_architecture_cloudwatch_agent" {
+  role       = aws_iam_role.resilience_architecture_ec2_role.name
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
 }
 
-resource "aws_iam_role_policy_attachment" "ssm_core" {
-  role       = aws_iam_role.ec2_role.name
+resource "aws_iam_role_policy_attachment" "resilience_architecture_ssm_core" {
+  role       = aws_iam_role.resilience_architecture_ec2_role.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
+resource "aws_iam_role_policy_attachment" "resilience_architecture_s3_readonly" {
+  role       = aws_iam_role.resilience_architecture_ec2_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
 }

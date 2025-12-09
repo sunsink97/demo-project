@@ -88,3 +88,8 @@ variable "asg_health_check_grace_period" {
   type        = number
   default     = 300
 }
+
+variable "scale_target_cpu" {
+  type    = number
+  default = 75
+}

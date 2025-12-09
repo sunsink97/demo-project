@@ -46,3 +46,5 @@ for ec2.tf == ideally create ami using self made instance golden template. but f
 user data are for demo purposes and does nothing effectively. usually filled with script that need to run before the instance is ready. for example join domain script, or hardening script , etc.
 
 in this case of demo, user data is installed via amazon linux and only need to be enabled. however, if we create our own ami, make sure to add installation process on the user data.
+
+ami-093a7f5fbae13ff67 <----- this ami is singapore region only

@@ -4,44 +4,33 @@ set -xe
 LOG_FILE="/var/log/user-data.log"
 
 log() {
-  echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
+  echo "$1" >> "$LOG_FILE"
 }
 
-log "========== USER DATA START =========="
-
-log "STEP 1 START - dnf update and install nginx + agents"
+log "step 1 start - system update and install nginx + agents"
 
 dnf update -y >> "$LOG_FILE" 2>&1
+dnf install -y nginx amazon-cloudwatch-agent amazon-ssm-agent ruby wget >> "$LOG_FILE" 2>&1
 
-# Install NGINX, CloudWatch Agent, and SSM Agent (AL2023 packages)
-dnf install -y nginx amazon-cloudwatch-agent amazon-ssm-agent >> "$LOG_FILE" 2>&1
-
-# Enable & start services
 systemctl enable nginx >> "$LOG_FILE" 2>&1
 systemctl start nginx >> "$LOG_FILE" 2>&1
 
 systemctl enable amazon-ssm-agent >> "$LOG_FILE" 2>&1
 systemctl start amazon-ssm-agent >> "$LOG_FILE" 2>&1
 
-log "STEP 1 END - Packages installed and services started"
+log "step 1 end"
+log "step 2 start - install codedeploy agent"
 
-log "STEP 2 START - Write index.html"
+cd /tmp
+wget https://aws-codedeploy-ap-southeast-1.s3.amazonaws.com/latest/install >> "$LOG_FILE" 2>&1
+chmod +x ./install
+./install auto >> "$LOG_FILE" 2>&1
 
-cat << 'EOF' > /usr/share/nginx/html/index.html
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>NGINX on EC2</title>
-  </head>
-  <body>
-    <h1>NGINX is running on this EC2 instance</h1>
-  </body>
-</html>
-EOF
+systemctl enable codedeploy-agent >> "$LOG_FILE" 2>&1
+systemctl start codedeploy-agent >> "$LOG_FILE" 2>&1
 
-log "STEP 2 END - index.html written"
-
-log "STEP 3 START - Configure CloudWatch Agent"
+log "step 2 end"
+log "step 3 start - configure cloudwatch agent"
 
 mkdir -p /opt/aws/amazon-cloudwatch-agent/etc
 
@@ -58,18 +47,12 @@ cat << 'EOF' > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
     },
     "metrics_collected": {
       "mem": {
-        "measurement": [
-          "mem_used_percent"
-        ],
+        "measurement": ["mem_used_percent"],
         "metrics_collection_interval": 60
       },
       "disk": {
-        "measurement": [
-          "used_percent"
-        ],
-        "resources": [
-          "/"
-        ],
+        "measurement": ["used_percent"],
+        "resources": ["/"],
         "metrics_collection_interval": 60
       },
       "cpu": {
@@ -120,5 +103,5 @@ EOF
   -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json \
   -s >> "$LOG_FILE" 2>&1
 
-log "STEP 3 END - CloudWatch Agent configured and started"
-
+log "step 3 end"
+log "user data complete"
