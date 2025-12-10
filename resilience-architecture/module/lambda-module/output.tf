@@ -5,3 +5,7 @@ output "lambda_arn" {
 output "lambda_name" {
   value = aws_lambda_function.this.function_name
 }
+
+output "lambda_role_name" {
+  value = aws_iam_role.resilience_lambda_role.name
+}
