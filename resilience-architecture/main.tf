@@ -30,16 +30,50 @@ module "s3_ra_architecture" {
   block_public_access  = true
 }
 
+//rule for lambda for dynamo
+data "aws_iam_policy_document" "lambda_dynamodb_counter" {
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:UpdateItem",
+    ]
+
+    resources = [
+      aws_dynamodb_table.lambda_invocation_counter.arn
+    ]
+  }
+}
+
+resource "aws_iam_policy" "lambda_dynamodb_counter" {
+  name   = "${var.env}-${var.project_name}-lambda-dynamodb-counter"
+  policy = data.aws_iam_policy_document.lambda_dynamodb_counter.json
+  tags   = local.common_tags
+}
+
+resource "aws_iam_role_policy_attachment" "lambda_dynamodb_counter_attach" {
+  role       = module.resilience_lambda.lambda_role_name
+  policy_arn = aws_iam_policy.lambda_dynamodb_counter.arn
+}
+
+data "archive_file" "resilience_lambda_zip" {
+  type        = "zip"
+  source_file = "${path.module}/lambda/resilience_function.py"
+  output_path = "${path.module}/lambda/resilience_lambda.zip"
+}
+
 module "resilience_lambda" {
   source   = "./module/lambda-module"
   name     = "${var.env}-resilience-architecture-lambda"
-  filename = "module/lambda-module/lambda.zip"
-  handler  = "lambda_function.lambda_handler"
+  filename = data.archive_file.resilience_lambda_zip.output_path
+  handler  = "resilience_function.lambda_handler"
   runtime  = var.lambda_version
 
   environment_variables = {
-    test_api     = "super secret api"
-    test_env_var = "something"
+    test_api           = "super secret api key"
+    test_env_var       = "something"
+    COUNTER_TABLE_NAME = aws_dynamodb_table.lambda_invocation_counter.name
   }
 
   tags = local.common_tags
