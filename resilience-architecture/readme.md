@@ -48,3 +48,7 @@ user data are for demo purposes and does nothing effectively. usually filled wit
 in this case of demo, user data is installed via amazon linux and only need to be enabled. however, if we create our own ami, make sure to add installation process on the user data.
 
 ami-093a7f5fbae13ff67 <----- this ami is singapore region only
+
+
+
+-change storage location for the function for resilience to be inside the module instead the lambda folder. this change is done to make the code easier
