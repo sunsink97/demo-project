@@ -134,7 +134,7 @@ resource "aws_lb_listener_rule" "resilience_architecture_app_listener_rule" {
 
   condition {
     host_header {
-      values = ["demo.your-domain.com"]
+      values = ["domain.example.from.r53"]
     }
   }
 

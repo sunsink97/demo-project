@@ -380,261 +380,201 @@
     </footer>
   </div>
 
-  <script>
-    // === Configuration =======================================================
-    // TODO: Replace with your real endpoints
-    const METRICS_API_URL = "https://YOUR_METRICS_API_URL_HERE/metrics";
-    const INVOKE_API_URL  = "https://YOUR_INVOKE_API_URL_HERE/invoke";
+<script>
+  const METRICS_API_URL = "https://YOUR_METRICS_API_URL_HERE/metrics";
+  const INVOKE_API_URL = "https://<api-id>.execute-api.<region>.amazonaws.com/<env>/counter";
 
-    const AUTO_REFRESH_INTERVAL_MS = 30_000;
+  const AUTO_REFRESH_INTERVAL_MS = 30000;
+  const POST_INVOKE_REFRESH_DELAY_MS = 3500;
+  const MAX_HISTORY_POINTS = 60;
 
-    let lambdaChart = null;
-    let currentRange = "1h";
-    let autoRefreshTimer = null;
+  let lambdaChart = null;
+  let currentRange = "1h";
+  let autoRefreshTimer = null;
 
-    const el = {
-      currentRate: document.getElementById("currentRate"),
-      avgRate: document.getElementById("avgRate"),
-      maxRate: document.getElementById("maxRate"),
-      lastUpdated: document.getElementById("lastUpdated"),
-      statusDot: document.getElementById("statusDot"),
-      statusText: document.getElementById("statusText"),
-      pointCountText: document.getElementById("pointCountText"),
-      errorBanner: document.getElementById("errorBanner"),
-      errorText: document.getElementById("errorText"),
-      rangeSegment: document.getElementById("rangeSegment"),
-      autoRefreshToggle: document.getElementById("autoRefreshToggle"),
-      refreshBtn: document.getElementById("refreshBtn"),
-      invokeBtn: document.getElementById("invokeBtn"),
-    };
+  const historyPoints = [];
 
-    // === Helpers =============================================================
-    function formatTimeLabel(isoString) {
-      const d = new Date(isoString);
-      return d.toLocaleTimeString("en-GB", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    }
+  const el = {
+    currentRate: document.getElementById("currentRate"),
+    avgRate: document.getElementById("avgRate"),
+    maxRate: document.getElementById("maxRate"),
+    lastUpdated: document.getElementById("lastUpdated"),
+    statusDot: document.getElementById("statusDot"),
+    statusText: document.getElementById("statusText"),
+    pointCountText: document.getElementById("pointCountText"),
+    errorBanner: document.getElementById("errorBanner"),
+    errorText: document.getElementById("errorText"),
+    rangeSegment: document.getElementById("rangeSegment"),
+    autoRefreshToggle: document.getElementById("autoRefreshToggle"),
+    refreshBtn: document.getElementById("refreshBtn"),
+    invokeBtn: document.getElementById("invokeBtn"),
+  };
 
-    function formatDateTimeLocal(date) {
-      return date.toLocaleString("en-GB", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      });
-    }
+  function formatTimeLabel(isoString) {
+    const d = new Date(isoString);
+    return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }
 
-    function setStatus(state, message) {
-      el.statusDot.className = "status-dot " + state;
-      el.statusText.textContent = message;
-    }
-
-    function showError(message) {
-      el.errorBanner.classList.add("visible");
-      el.errorText.textContent = message;
-      setStatus("err", "Error");
-    }
-
-    function clearError() {
-      el.errorBanner.classList.remove("visible");
-      setStatus("ok", "Connected");
-    }
-
-    // === Chart setup =========================================================
-    function initChart() {
-      const ctx = document.getElementById("lambdaChart").getContext("2d");
-      lambdaChart = new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: [],
-          datasets: [
-            {
-              label: "Invocations",
-              data: [],
-              fill: true,
-              tension: 0.25,
-            },
-          ],
-        },
-        options: {
-          maintainAspectRatio: false,
-          scales: {
-            x: {
-              grid: { display: false },
-              ticks: { maxTicksLimit: 8, color: "#9ca3af" },
-            },
-            y: {
-              beginAtZero: true,
-              grid: { color: "rgba(31, 41, 55, 0.6)" },
-              ticks: { color: "#9ca3af", precision: 0 },
-            },
-          },
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: (context) => "Invocations: " + context.parsed.y,
-              },
-            },
-          },
-        },
-      });
-    }
-
-    function updateChart(points) {
-      if (!lambdaChart) return;
-
-      lambdaChart.data.labels = points.map((p) => formatTimeLabel(p.timestamp));
-      lambdaChart.data.datasets[0].data = points.map((p) => p.value);
-      lambdaChart.update();
-
-      const countText =
-        points.length === 1 ? "1 data point" : points.length + " data points";
-      el.pointCountText.textContent = countText;
-    }
-
-    function updateSummary(points) {
-      if (!points || points.length === 0) {
-        el.currentRate.textContent = "—";
-        el.avgRate.textContent = "—";
-        el.maxRate.textContent = "—";
-        el.lastUpdated.textContent = "—";
-        setStatus("warn", "No data for this range");
-        return;
-      }
-
-      const lastPoint = points[points.length - 1];
-      const values = points.map((p) => p.value);
-      const sum = values.reduce((a, b) => a + b, 0);
-      const avg = sum / values.length;
-      const max = Math.max(...values);
-
-      el.currentRate.textContent = lastPoint.value.toString();
-      el.avgRate.textContent = avg.toFixed(1);
-      el.maxRate.textContent = max.toString();
-      el.lastUpdated.textContent = formatDateTimeLocal(new Date());
-      setStatus("ok", "Live · " + currentRange);
-    }
-
-    // === Data loading ========================================================
-    async function loadAndRender(range) {
-      try {
-        clearError();
-
-        const url = new URL(METRICS_API_URL);
-        url.searchParams.set("range", range);
-
-        const res = await fetch(url.toString(), {
-          method: "GET",
-          headers: { "Content-Type": "application/json" },
-        });
-
-        if (!res.ok) {
-          throw new Error("HTTP " + res.status);
-        }
-
-        const data = await res.json();
-        const points = Array.isArray(data.points) ? data.points : [];
-
-        updateChart(points);
-        updateSummary(points);
-      } catch (err) {
-        console.error(err);
-        showError("Could not load metrics. Check API and CORS.");
-      }
-    }
-
-    // === Invoke Lambda =======================================================
-    async function invokeLambda() {
-      el.invokeBtn.disabled = true;
-      const originalText = el.invokeBtn.querySelector("span:last-child").textContent;
-      el.invokeBtn.querySelector("span:last-child").textContent = "Invoking…";
-
-      try {
-        const res = await fetch(INVOKE_API_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ source: "dashboard" }),
-        });
-
-        if (!res.ok) {
-          throw new Error("HTTP " + res.status);
-        }
-
-        // Optional: read body if you return something
-        // const result = await res.json();
-
-        // After invoking, reload metrics to reflect new invocation
-        await loadAndRender(currentRange);
-        setStatus("ok", "Lambda triggered");
-      } catch (err) {
-        console.error(err);
-        showError("Failed to trigger Lambda.");
-      } finally {
-        el.invokeBtn.disabled = false;
-        el.invokeBtn.querySelector("span:last-child").textContent = originalText;
-      }
-    }
-
-    // === Auto-refresh ========================================================
-    function startAutoRefresh() {
-      stopAutoRefresh();
-      autoRefreshTimer = setInterval(() => {
-        loadAndRender(currentRange);
-      }, AUTO_REFRESH_INTERVAL_MS);
-    }
-
-    function stopAutoRefresh() {
-      if (autoRefreshTimer) {
-        clearInterval(autoRefreshTimer);
-        autoRefreshTimer = null;
-      }
-    }
-
-    // === Events ==============================================================
-    function setupEvents() {
-      el.rangeSegment.addEventListener("click", (event) => {
-        const btn = event.target.closest("button[data-range]");
-        if (!btn) return;
-        const newRange = btn.getAttribute("data-range");
-        if (!newRange || newRange === currentRange) return;
-
-        currentRange = newRange;
-        el.rangeSegment.querySelectorAll("button").forEach((b) => {
-          b.classList.toggle("active", b === btn);
-        });
-
-        loadAndRender(currentRange);
-      });
-
-      el.autoRefreshToggle.addEventListener("change", (event) => {
-        if (event.target.checked) {
-          startAutoRefresh();
-        } else {
-          stopAutoRefresh();
-        }
-      });
-
-      el.refreshBtn.addEventListener("click", () => {
-        loadAndRender(currentRange);
-      });
-
-      el.invokeBtn.addEventListener("click", () => {
-        invokeLambda();
-      });
-    }
-
-    // === Bootstrap ===========================================================
-    document.addEventListener("DOMContentLoaded", () => {
-      initChart();
-      setupEvents();
-      loadAndRender(currentRange);
-      startAutoRefresh();
+  function formatDateTimeLocal(date) {
+    return date.toLocaleString("en-GB", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
     });
-  </script>
+  }
+
+  function setStatus(state, message) {
+    el.statusDot.className = "status-dot " + state;
+    el.statusText.textContent = message;
+  }
+
+  function showError(message) {
+    el.errorBanner.classList.add("visible");
+    el.errorText.textContent = message;
+    setStatus("err", "Error");
+  }
+
+  function clearError() {
+    el.errorBanner.classList.remove("visible");
+    setStatus("ok", "Connected");
+  }
+
+  function sleep(ms) {
+    return new Promise((r) => setTimeout(r, ms));
+  }
+
+  function initChart() {
+    const ctx = document.getElementById("lambdaChart").getContext("2d");
+    lambdaChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: [],
+        datasets: [{ label: "Total Count", data: [], fill: true, tension: 0.25 }],
+      },
+      options: {
+        maintainAspectRatio: false,
+        scales: {
+          x: { grid: { display: false }, ticks: { maxTicksLimit: 8, color: "#9ca3af" } },
+          y: { beginAtZero: true, grid: { color: "rgba(31, 41, 55, 0.6)" }, ticks: { color: "#9ca3af", precision: 0 } },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: (c) => "Total Count: " + c.parsed.y } },
+        },
+      },
+    });
+  }
+
+  function updateChart(points) {
+    if (!lambdaChart) return;
+    lambdaChart.data.labels = points.map((p) => formatTimeLabel(p.timestamp));
+    lambdaChart.data.datasets[0].data = points.map((p) => p.value);
+    lambdaChart.update();
+    el.pointCountText.textContent = points.length === 1 ? "1 data point" : points.length + " data points";
+  }
+
+  function computeStats() {
+    if (historyPoints.length === 0) return { avg: null, max: null };
+    const values = historyPoints.map((p) => p.value);
+    const avg = values.reduce((a, b) => a + b, 0) / values.length;
+    const max = Math.max(...values);
+    return { avg, max };
+  }
+
+  async function loadAndRender(range) {
+    try {
+      clearError();
+      const res = await fetch(METRICS_API_URL, { method: "GET", headers: { "Content-Type": "application/json" } });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const data = await res.json();
+      const count = Number(data.count ?? 0);
+      const rate = Number(data.tick_rate_per_min ?? 0);
+
+      el.currentRate.textContent = rate.toFixed(2);
+      el.lastUpdated.textContent = formatDateTimeLocal(new Date());
+
+      historyPoints.push({ timestamp: new Date().toISOString(), value: count });
+      while (historyPoints.length > MAX_HISTORY_POINTS) historyPoints.shift();
+
+      updateChart(historyPoints);
+
+      const stats = computeStats();
+      el.avgRate.textContent = stats.avg === null ? "—" : stats.avg.toFixed(1);
+      el.maxRate.textContent = stats.max === null ? "—" : stats.max.toString();
+
+      setStatus("ok", "Live · " + range);
+    } catch (err) {
+      console.error(err);
+      showError("Could not load metrics.");
+    }
+  }
+
+  async function invokeLambda() {
+    el.invokeBtn.disabled = true;
+    const labelEl = el.invokeBtn.querySelector("span:last-child");
+    const originalText = labelEl ? labelEl.textContent : el.invokeBtn.textContent;
+    if (labelEl) labelEl.textContent = "Sending…";
+    else el.invokeBtn.textContent = "Sending…";
+
+    try {
+      const res = await fetch(INVOKE_API_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "increment", by: 1, source: "dashboard" }),
+      });
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      setStatus("ok", "Enqueued");
+      await sleep(POST_INVOKE_REFRESH_DELAY_MS);
+      await loadAndRender(currentRange);
+      setStatus("ok", "Updated");
+    } catch (err) {
+      console.error(err);
+      showError("Failed to enqueue.");
+    } finally {
+      el.invokeBtn.disabled = false;
+      if (labelEl) labelEl.textContent = originalText;
+      else el.invokeBtn.textContent = originalText;
+    }
+  }
+
+  function startAutoRefresh() {
+    stopAutoRefresh();
+    autoRefreshTimer = setInterval(() => loadAndRender(currentRange), AUTO_REFRESH_INTERVAL_MS);
+  }
+
+  function stopAutoRefresh() {
+    if (autoRefreshTimer) {
+      clearInterval(autoRefreshTimer);
+      autoRefreshTimer = null;
+    }
+  }
+
+  function setupEvents() {
+    el.rangeSegment.addEventListener("click", (e) => {
+      const btn = e.target.closest("button[data-range]");
+      if (!btn) return;
+      const r = btn.getAttribute("data-range");
+      if (!r || r === currentRange) return;
+      currentRange = r;
+      el.rangeSegment.querySelectorAll("button").forEach((b) => b.classList.toggle("active", b === btn));
+      loadAndRender(currentRange);
+    });
+
+    el.autoRefreshToggle.addEventListener("change", (e) => (e.target.checked ? startAutoRefresh() : stopAutoRefresh()));
+    el.refreshBtn.addEventListener("click", () => loadAndRender(currentRange));
+    el.invokeBtn.addEventListener("click", invokeLambda);
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    initChart();
+    setupEvents();
+    loadAndRender(currentRange);
+    startAutoRefresh();
+  });
+</script>
+
 </body>
 </html>

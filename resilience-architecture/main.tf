@@ -71,8 +71,7 @@ module "resilience_lambda" {
   runtime  = var.lambda_version
 
   environment_variables = {
-    test_api           = "super secret api key"
-    test_env_var       = "something"
+    test_env_var       = "something something env var"
     COUNTER_TABLE_NAME = aws_dynamodb_table.lambda_invocation_counter.name
   }
 
