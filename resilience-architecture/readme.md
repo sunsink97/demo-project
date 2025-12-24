@@ -8,7 +8,7 @@
 Feature
 -create lb, lb template etc
 -enable multi az for ec2
--enable multi az for dynamo db
+-enable  global table for dynamo
 -create ami for ec2 made by lb
 -create weekly ec2 server patching based on tagging
 -create custom pipeline to update ami with latest linux update. maybe create using git pipeline  to run code like i do it on PMI using jenkins. just run the system manager maintenance task 
@@ -55,3 +55,13 @@ ami-093a7f5fbae13ff67 <----- this ami is singapore region only
 
 
 -adding sqs. just for demo purporses as there will be no real use in this project since it will only receice once or twice trigger as this is only used for dedmo
+
+- use rest api instead of non rest to directly connect to sqs
+
+
+12/24/2025 progress : 
+-api --> sqs --> lambda --> dynamo counter is already working.
+-still welcome to ngin x default. not yet deploy front end.
+
+NEXT step :
+-wire front end button so it will work and trigger api 
