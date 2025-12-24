@@ -3,7 +3,7 @@ locals {
     project          = var.project_name
     env              = var.env
     managedby        = "Terraform"
-    MaintenanceWindw = "SUN_17"
+    MaintenanceWindw = "MON_10_WIB"
     Backup-plan      = "default"
     ProductCOde      = "RA_demo"
   }

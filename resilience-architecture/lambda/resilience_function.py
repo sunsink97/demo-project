@@ -54,7 +54,7 @@ def _get_item():
     try:
         resp = dynamodb.get_item(
             TableName=TABLE_NAME,
-            Key={"partition_key": {"string": PK_VALUE}},
+            Key={"partition_key": {"S": PK_VALUE}},
             ConsistentRead=True,
         )
         return resp.get("Item")
@@ -97,7 +97,7 @@ def _increment_by(n: int):
     try:
         resp = dynamodb.update_item(
             TableName=TABLE_NAME,
-            Key={"partition_key": {"string": PK_VALUE}},
+            Key={"partition_key": {"S": PK_VALUE}},
             UpdateExpression="ADD lambda_invoke_count :inc SET last_ts = :ts, tick_rate_per_min = :rate",
             ExpressionAttributeValues={
                 ":inc": {"N": str(n)},

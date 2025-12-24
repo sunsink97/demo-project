@@ -6,7 +6,7 @@ resource "aws_dynamodb_table" "lambda_invocation_counter" {
 
   attribute {
     name = "partition_key"
-    type = "string"
+    type = "S"
   }
 
   point_in_time_recovery {
