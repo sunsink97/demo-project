@@ -27,7 +27,7 @@ resource "aws_launch_template" "resilience_architecture_launch_template" {
 
     ebs {
       volume_size = 8
-      volume_type = "gp3"
+      volume_type = "gp2"
       encrypted   = true
     }
   }
@@ -74,17 +74,15 @@ resource "aws_autoscaling_group" "resilience_architecture_autoscaling_group" {
     triggers = ["launch_template"]
   }
 
-  tag {
-    key                 = "Managedby"
-    value               = "Terraform"
-    propagate_at_launch = true
+  dynamic "tag" {
+    for_each = local.common_tags
+    content {
+      key                 = tag.key
+      value               = tag.value
+      propagate_at_launch = true
+    }
   }
-
-  tag {
-    key                 = "Name"
-    value               = "${var.env}-${var.project_name}-autoscaling-group"
-    propagate_at_launch = true
-  }
+  
 }
 
 resource "aws_autoscaling_policy" "resilience_architecture_target_tracking_cpu" {
