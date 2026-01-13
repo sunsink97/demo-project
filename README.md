@@ -1,4 +1,4 @@
-## Serverless Demo (Not complete yet)
+## Serverless Demo (Work in Progress)
 
 AWS Infra DEMO. This GitHub repository is a place to showcase my experience working in infrastructure so far. Below are some of the projects that reflect what I've learned in the past few years.
 
